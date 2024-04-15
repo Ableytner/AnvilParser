@@ -12,7 +12,7 @@ namespace AnvilParser
     {
         public Chunk(NbtCompound nbtData)
         {
-            if (nbtData.Get<NbtInt>("DataVersion") != null)
+            if (nbtData.Contains("DataVersion"))
             {
                 Version = nbtData.Get<NbtInt>("DataVersion").Value;
             }
@@ -246,6 +246,7 @@ namespace AnvilParser
             {
                 state = index * bits / 64;
             }
+            else
             {
                 state = index / (64 / bits);
             }

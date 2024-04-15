@@ -48,9 +48,10 @@ namespace AnvilParser
 
             Dictionary<string, string> properties = new Dictionary<string, string>();
 
-            NbtCompound propertiesCompound = tag.Get<NbtCompound>("Properties");
-            if (propertiesCompound != null)
+            if (tag.Contains("Properties"))
             {
+                NbtCompound propertiesCompound = tag.Get<NbtCompound>("Properties");
+
                 string[] names = propertiesCompound.Names.ToArray();
                 foreach (var n in names)
                 {
