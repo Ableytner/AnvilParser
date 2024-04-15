@@ -8,5 +8,6 @@ namespace AnvilParser
 {
     public abstract class BaseBlock
     {
+        public string Id { get; set; }
     }
 }

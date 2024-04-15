@@ -52,7 +52,7 @@ namespace AnvilParser
         public int X { get; set; }
         public int Z { get; set; }
 
-        public BaseBlock? GetBlock(int X, int Y, int Z)
+        public BaseBlock GetBlock(int X, int Y, int Z)
         {
             if (X < 0 || X > 15)
             {
@@ -85,15 +85,15 @@ namespace AnvilParser
             // Explained in depth here https://minecraft.wiki/w/index.php?title=Chunk_format&oldid=1153403#Block_format
             if (Version < Versions.VERSION_17w47a)
             {
-                if (section == null || !section.TryGet<NbtIntArray>("Blocks", out _))
+                if (section == null || !section.Contains("Blocks"))
                 {
-                    return null;
+                    return new OldBlock(0);
                 }
 
                 int inDex = Y * 16 * 16 + Z * 16 + X;
 
                 int block_id = section.Get<NbtIntArray>("Blocks")[inDex];
-                if (section.TryGet<NbtByteArray>("Add", out _))
+                if (section.Contains("Add"))
                 {
                     block_id += Nibble(section.Get<NbtByteArray>("Add").Value, inDex) << 8;
                 }
@@ -124,7 +124,6 @@ namespace AnvilParser
             NbtList palette = PaletteFromSection(section);
 
             int bits = Math.Max(ByteHelper.BitCount(palette.Count - 1), 4);
-            int bitsLen = ByteHelper.BitCount(palette.Count - 1);
 
             // Get index on the block list with the order YZX
             int index = Y * 16 * 16 + Z * 16 + X;
@@ -147,7 +146,7 @@ namespace AnvilParser
             {
                 // shift the number to the right to remove the left over bits
                 // and shift so the i'th block is the first one
-                shifted_data = data >> ((bits * index) & 64);
+                shifted_data = data >> ((bits * index) % 64);
             }
             else
             {
@@ -176,6 +175,129 @@ namespace AnvilParser
             return Block.FromPalette((NbtCompound)palette[paletteId]);
         }
 
+        public IEnumerable<BaseBlock> StreamBlocks()
+        {
+            NbtCompound section = GetSection(0);
+            int index = 0;
+
+            if (Version < Versions.VERSION_17w47a)
+            {
+                if (section == null || !section.Contains("Blocks"))
+                {
+                    BaseBlock airBlockOld = new OldBlock(0);
+                    for (int i = 0; i < 4096; i++)
+                    {
+                        yield return airBlockOld;
+                    }
+                    yield break;
+                }
+
+                while (index < 4096)
+                {
+                    int block_id = section.Get<NbtIntArray>("Blocks")[index];
+                    if (section.Contains("Add"))
+                    {
+                        block_id += Nibble(section.Get<NbtByteArray>("Add").Value, index) << 8;
+                    }
+
+                    int block_data = Nibble(section.Get<NbtByteArray>("Data").Value, index);
+
+                    BaseBlock block = new OldBlock(block_id, block_data);
+                    yield return block;
+
+                    index++;
+                }
+
+                yield break;
+            }
+
+            BaseBlock airBlock = Block.FromName("minecraft:air");
+            if (section == null)
+            {
+                for (int i = 0; i < 4096; i++)
+                {
+                    yield return airBlock;
+                }
+                yield break;
+            }
+            long[]? states = null;
+            try
+            {
+                states = StatesFromSection(section);
+            }
+            catch { }
+            if (states == null)
+            {
+                for (int i = 0; i < 4096; i++)
+                {
+                    yield return airBlock;
+                }
+                yield break;
+            }
+
+            NbtList palette = PaletteFromSection(section);
+
+            int bits = Math.Max(ByteHelper.BitCount(palette.Count - 1), 4);
+
+            bool stretches = Version < Versions.VERSION_20w17a;
+
+            int state;
+            if (stretches)
+            {
+                state = index * bits / 64;
+            }
+            {
+                state = index / (64 / bits);
+            }
+
+            long data = states[state];
+
+            uint bitsMask = (uint)(Math.Pow(2, bits) - 1);
+
+            int offset;
+            if (stretches)
+            {
+                offset = (bits * index) % 64;
+            }
+            else
+            {
+                offset = index % (64 / bits) * bits;
+            }
+
+            int dataLen = 64 - offset;
+            data >>= offset;
+
+            long newData;
+            while (index < 4096)
+            {
+                if (dataLen < bits)
+                {
+                    state += 1;
+                    newData = states[state];
+
+                    if (stretches)
+                    {
+                        int leftover = dataLen;
+                        dataLen += 64;
+
+                        data = BinAppend(newData, data, leftover);
+                    }
+                    else
+                    {
+                        data = newData;
+                        dataLen = 64;
+                    }
+                }
+
+                int paletteId = (int)(data & bitsMask);
+                yield return Block.FromPalette((NbtCompound)palette[paletteId]);
+
+                index++;
+                data >>= bits;
+                dataLen -= bits;
+            }
+        }
+
         private NbtCompound? GetSection(int Y)
         {
             int sectionRangeStart, sectionRangeStop;
@@ -195,11 +317,11 @@ namespace AnvilParser
             }
 
             NbtList sections;
-            if (Data.TryGet<NbtList>("sections", out _))
+            if (Data.Contains("sections"))
             {
                 sections = Data.Get<NbtList>("sections");
             }
-            else if (Data.TryGet<NbtList>("Sections", out _))
+            else if (Data.Contains("Sections"))
             {
                 sections = Data.Get<NbtList>("Sections");
             }
@@ -236,13 +358,13 @@ namespace AnvilParser
         //bin_append(0b1, 0b10) = 0b110
         private static int BinAppend(int a, int b)
         {
-            int length = BitOperations.PopCount((uint)b);
+            int length = ByteHelper.BitCount(b);
             return (a << length) | b;
         }
 
         private static long BinAppend(long a, long b)
         {
-            int length = BitOperations.PopCount((uint)b);
+            int length = ByteHelper.BitCount((int)b);
             return (a << length) | b;
         }
 

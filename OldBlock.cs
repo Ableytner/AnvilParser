@@ -8,13 +8,18 @@ namespace AnvilParser
 {
     internal class OldBlock : BaseBlock
     {
+        public OldBlock(int id)
+        {
+            Id = id.ToString();
+            Data = 0;
+        }
+
         public OldBlock(int id, int data)
         {
-            Id = id;
+            Id = id.ToString();
             Data = data;
         }
 
-        public int Id { get; set; }
         public int Data { get; set; }
 
         public override string ToString()

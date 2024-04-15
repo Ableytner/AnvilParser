@@ -46,19 +46,22 @@ namespace AnvilParser
         {
             string name = tag.Get<NbtString>("Name").Value;
 
-            NbtCompound propertiesCompound = tag.Get<NbtCompound>("Properties");
             Dictionary<string, string> properties = new Dictionary<string, string>();
-            string[] names = propertiesCompound.Names.ToArray();
-            foreach(var n in names)
+
+            NbtCompound propertiesCompound = tag.Get<NbtCompound>("Properties");
+            if (propertiesCompound != null)
             {
-                properties[n] = propertiesCompound.Get<NbtString>(n).Value;
+                string[] names = propertiesCompound.Names.ToArray();
+                foreach (var n in names)
+                {
+                    properties[n] = propertiesCompound.Get<NbtString>(n).Value;
+                }
             }
 
             return FromName(name, properties);
         }
 
         public string Namespace { get; set; }
-        public string Id { get; set; }
         public Dictionary<string, string> Properties { get; set; }
 
         public override string ToString()
