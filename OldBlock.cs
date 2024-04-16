@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace AnvilParser
 {
-    internal class OldBlock : BaseBlock
+    public class OldBlock : BaseBlock
     {
         public OldBlock(int id)
         {

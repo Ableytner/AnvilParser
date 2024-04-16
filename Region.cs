@@ -17,16 +17,31 @@ namespace AnvilParser
 
         private byte[] data;
 
-        public Chunk GetChunk(int chunkX, int chunkZ)
+        public Chunk? GetChunk(int chunkX, int chunkZ)
         {
             return Chunk.FromRegion(this, chunkX, chunkZ);
+        }
+
+        public IEnumerable<Chunk> StreamChunks()
+        {
+            for (int chunkX = 0; chunkX < 32; chunkX++)
+            {
+                for (int chunkZ = 0; chunkZ < 32; chunkZ++)
+                {
+                    Chunk? chunk = GetChunk(chunkX, chunkZ);
+                    if (chunk != null)
+                    {
+                        yield return chunk;
+                    }
+                }
+            }
         }
 
         public NbtFile? ChunkData(int chunkX, int chunkZ)
         {
             var off = ChunkLocation(chunkX, chunkZ);
             // (0, 0) means it hasn't generated yet, aka it doesn't exist yet
-            if (off == new Tuple<uint, uint>(0, 0))
+            if (off.Item1 == 0 && off.Item2 == 0)
             {
                 return null;
             }

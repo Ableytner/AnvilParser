@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace AnvilParser
 {
-    internal class Block : BaseBlock
+    public class Block : BaseBlock
     {
         public Block(string blockId)
         {
